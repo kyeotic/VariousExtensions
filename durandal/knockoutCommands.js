@@ -24,13 +24,20 @@ define(['knockout', 'jquery'], function(ko, $) {
             return self;
         };
 
-        ko.qCommand = function (options) {
-            var self = function () {
-                return self.execute.apply(this, arguments);
-            };
+        ko.promiseCommand = function (options) {
+            var canExecuteDelegate = options.canExecute;
+            var executeDelegate = options.execute;
             
-            var canExecuteDelegate = options.canExecute,
-                executeDelegate = options.execute;
+            //Execute will be called from the binding, and so it needs to .done() its own chain
+            //But direct calls need access to a chainable promise, so we make a new promise for
+            //The end of the old chain, and return that
+            var self = function () {
+                var promise = self.execute.apply(this, arguments);
+                return Q.when(promise).fail(function() {
+                        console.log('An error occured with execute delegate');
+                        console.log(executeDelegate);
+                    });
+            };
 
             self.isExecuting = ko.observable();
 
@@ -45,11 +52,49 @@ define(['knockout', 'jquery'], function(ko, $) {
 
                 self.isExecuting(true);
 
-                //We can't return this and have a done() handler from the normal
-                //execute.
-                Q.fapply(executeDelegate, [arg1, arg2]).then(function () {
+                return Q.fapply(executeDelegate, [arg1, arg2]).then(function () {
                     self.isExecuting(false);
                 }).done();
+            };
+
+            return self;
+        };
+
+        ko.asyncCommand = function (options) {
+            var
+                self = function () {
+                    return self.execute.apply(this, arguments);
+                },
+                canExecuteDelegate = options.canExecute,
+                executeDelegate = options.execute,
+
+                completeCallback = function () {
+                    self.isExecuting(false);
+                };
+
+            self.isExecuting = ko.observable();
+
+            self.canExecute = ko.computed(function () {
+                return canExecuteDelegate ? canExecuteDelegate(self.isExecuting()) : !self.isExecuting();
+            });
+
+            self.execute = function (arg1, arg2) {
+                // Needed for anchors since they don't support the disabled state
+                if (!self.canExecute()) return
+
+                var args = []; // Allow for these arguments to be passed on to execute delegate
+
+                if (executeDelegate.length >= 2) {
+                    args.push(arg1);
+                }
+
+                if (executeDelegate.length >= 3) {
+                    args.push(arg2);
+                }
+
+                args.push(completeCallback);
+                self.isExecuting(true);
+                return executeDelegate.apply(this, args);
             };
 
             return self;
