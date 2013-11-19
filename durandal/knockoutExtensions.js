@@ -9,7 +9,7 @@ define(['knockout'], function(ko) {
             });
             
             if (createUpdateMethod) {
-            	viewmodel[update] = function(data) {
+            	viewmodel.update = function(data) {
 	            	Object.keys(map, function(key, value) {
 	            		if (data[key])
 	            			viewmodel[key](value);
