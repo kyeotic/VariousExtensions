@@ -20,8 +20,8 @@ define(['knockout', 'jquery'], function(ko, $) {
 			//Initial definition
 		    $.fn.activity = function (opts) {
 		        this.each(function () {
-		            var $this = $(this);
-		            var el = $this.data('activity');
+		            var $this = $(this),
+		            	el = $this.data('activity');
 		            if (el) {
 		                clearInterval(el.data('interval'));
 		                el.remove();
@@ -31,13 +31,13 @@ define(['knockout', 'jquery'], function(ko, $) {
 		                opts = $.extend({ color: $this.css('color') }, $.fn.activity.defaults, opts);
 
 		                el = render($this, opts).css('position', 'absolute').prependTo(opts.outside ? 'body' : $this);
-		                var h = $this.outerHeight() - el.height();
-		                var w = $this.outerWidth() - el.width();
-		                var margin = {
-		                    top: opts.valign == 'top' ? opts.padding : opts.valign == 'bottom' ? h - opts.padding : Math.floor(h / 2),
-		                    left: opts.align == 'left' ? opts.padding : opts.align == 'right' ? w - opts.padding : Math.floor(w / 2)
-		                };
-		                var offset = $this.offset();
+		                var h = $this.outerHeight() - el.height(),
+		                	w = $this.outerWidth() - el.width(),
+		                	offset = $this.offset(),
+		                	margin = {
+			                    top: opts.valign == 'top' ? opts.padding : opts.valign == 'bottom' ? h - opts.padding : Math.floor(h / 2),
+			                    left: opts.align == 'left' ? opts.padding : opts.align == 'right' ? w - opts.padding : Math.floor(w / 2)
+			                };
 		                if (opts.outside) {
 		                    el.css({ top: offset.top + 'px', left: offset.left + 'px' });
 		                }
@@ -65,8 +65,8 @@ define(['knockout', 'jquery'], function(ko, $) {
 		    };
 
 		    $.fn.activity.getOpacity = function (opts, i) {
-		        var steps = opts.steps || opts.segments - 1;
-		        var end = opts.opacity !== undefined ? opts.opacity : 1 / steps;
+		        var steps = opts.steps || opts.segments - 1,
+		        	end = opts.opacity !== undefined ? opts.opacity : 1 / steps;
 		        return 1 - Math.min(i, steps) * (1 - end) / steps;
 		    };
 
@@ -81,8 +81,7 @@ define(['knockout', 'jquery'], function(ko, $) {
 		    /**
 			 * The default animation strategy does nothing as we expect an animated gif as fallback.
 			 */
-		    var animate = function () {
-		    };
+		    var animate = function () { };
 
 		    /**
 			 * Utility function to create elements in the SVG namespace.
@@ -107,10 +106,9 @@ define(['knockout', 'jquery'], function(ko, $) {
 				 * Rendering strategy that creates a SVG tree.
 				 */
 		        render = function (target, d) {
-		            var innerRadius = d.width * 2 + d.space;
-		            var r = (innerRadius + d.length + Math.ceil(d.width / 2) + 1);
-
-		            var el = svg().width(r * 2).height(r * 2);
+		            var innerRadius = d.width * 2 + d.space,
+		            	r = (innerRadius + d.length + Math.ceil(d.width / 2) + 1),
+		            	el = svg().width(r * 2).height(r * 2);
 
 		            var g = svg('g', {
 		                'stroke-width': d.width,
@@ -143,12 +141,12 @@ define(['knockout', 'jquery'], function(ko, $) {
 					 */
 		            animate = function (el, steps, duration) {
 		                if (!animations[steps]) {
-		                    var name = 'spin' + steps;
-		                    var rule = '@-webkit-keyframes ' + name + ' {';
+		                    var name = 'spin' + steps,
+		                    	rule = '@-webkit-keyframes ' + name + ' {';
 		                    for (var i = 0; i < steps; i++) {
-		                        var p1 = Math.round(100000 / steps * i) / 1000;
-		                        var p2 = Math.round(100000 / steps * (i + 1) - 1) / 1000;
-		                        var value = '% { -webkit-transform:rotate(' + Math.round(360 / steps * i) + 'deg); }\n';
+		                        var p1 = Math.round(100000 / steps * i) / 1000,
+		                        	p2 = Math.round(100000 / steps * (i + 1) - 1) / 1000,
+	                        		value = '% { -webkit-transform:rotate(' + Math.round(360 / steps * i) + 'deg); }\n';
 		                        rule += p1 + value + p2 + value;
 		                    }
 		                    rule += '100% { -webkit-transform:rotate(100deg); }\n}';
@@ -164,8 +162,8 @@ define(['knockout', 'jquery'], function(ko, $) {
 					 * Animation strategy that transforms a SVG element using setInterval().
 					 */
 		            animate = function (el, steps, duration) {
-		                var rotation = 0;
-		                var g = el.find('g g').get(0);
+		                var rotation = 0,
+		                	g = el.find('g g').get(0);
 		                el.data('interval', setInterval(function () {
 		                    g.setAttributeNS(null, 'transform', 'rotate(' + (++rotation % steps * (360 / steps)) + ')');
 		                }, duration * 1000 / steps));
@@ -370,6 +368,6 @@ define(['knockout', 'jquery'], function(ko, $) {
 		            typeof activity !== 'boolean' || $(element).activityEx(activity);
 		        }
 		    };
-		}; //End install function
+		} //End install function
 	};
 });
