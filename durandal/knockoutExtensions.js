@@ -3,12 +3,19 @@ define(['knockout'], function(ko) {
     var install = function () {
 
         //Depends on SugarJS
-        ko.viewmodel = function (viewmodel, map) {
+        ko.viewmodel = function (viewmodel, map, createUpdateMethod) {
             Object.keys(map, function(key, value) {
                 viewmodel[key] = Object.isArray(value) ? ko.observableArray(value) : ko.observable(value);
             });
             
-            //TODO: consider creating an 'udpate' method on the viewmodel that merges in changes
+            if (createUpdateMethod) {
+            	viewmodel[update] = function(data) {
+	            	Object.keys(map, function(key, value) {
+	            		if (data[key])
+	            			viewmodel[key](value);
+	            	});
+	            };
+            }
         };
 
         ko.observableArray.fn.map = function(data, constructor) {
