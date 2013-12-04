@@ -1,0 +1,38 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <script type="text/javascript" src="jasmine.js"></script>
+    <script type="text/javascript" src="jasmineAsync.js"></script>
+    <script type="text/javascript" src="jasmine.console-reporter.js"></script>
+    <script type="text/javascript" src="../../../Origin.DaVinci.Website/lib/sugar-1.4.min.js"></script>
+    <script type="text/javascript" src="../../../Origin.DaVinci.Website/lib/q.min.js"></script>
+    <script type="text/javascript" src="../../../Origin.DaVinci.Website/lib/jquery-1.9.1.js"></script>
+    <script type="text/javascript" src="../../../Origin.DaVinci.Website/lib/knockout-2.3.0.js"></script>
+    <script type="text/javascript" src="../../../Origin.DaVinci.Website/lib/require/require.js"></script>
+    <script type="text/javascript">
+        require.config({
+            baseUrl: '../../../Origin.DaVinci.Website/app',
+            paths: {
+                'tests': '../../Origin.DaVinci.UnitTests/Javascript Tests/',
+                'spec': '../../Origin.DaVinci.UnitTests/Javascript Tests/spec/',
+                'text': '../lib/require/text',
+                'durandal': '../lib/durandal/js',
+                'plugins': '../lib/durandal/js/plugins',
+                'transitions': '../lib/durandal/js/transitions',
+                'knockout': '../lib/knockout-2.3.0',
+                'jquery': '../lib/jquery-1.9.1'
+            }
+        });
+        var runTests = function (specfiles) {
+            require(['tests/orderAddTests'], function () {
+                var consoleReporter = new jasmine.ConsoleReporter();
+                jasmine.getEnv().addReporter(consoleReporter);
+                jasmine.getEnv().execute();
+            });
+        };
+        require(['spec/durandalHarness']);
+    </script>
+</head>
+<body>
+</body>
+</html>
