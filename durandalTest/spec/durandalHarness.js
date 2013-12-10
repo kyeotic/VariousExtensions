@@ -9,14 +9,9 @@
         },
         knockoutExtensions: true,
         knockoutCommands: true,
-        qPatch: true,
-        envPatch: true
+        qPatch: true
     });
     app.start().then(function () {
-        app.config = {
-            tokenName: 'oat',
-            tokenHeaderName: 'x-oat'
-        };
         runTests(window.specFiles);
     });
 });
