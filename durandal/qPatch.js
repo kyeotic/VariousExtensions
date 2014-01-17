@@ -1,7 +1,7 @@
 define(['durandal/system', 'durandal/app'], function(system, app) {
     
     var install = function (config) {
-    	var config = config || {};
+    	config = config || {};
     	if (config.debugMode)
     		Q.longStackSupport = true;
 
