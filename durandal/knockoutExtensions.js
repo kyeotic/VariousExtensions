@@ -93,6 +93,56 @@ define(['knockout', 'jquery'], function(ko, $) {
 				previousValue = undefined;
 			});
 		};
+		
+		ko.extenders.isValid = function (target, validator) {
+		        //Use for tracking whether validation should be used
+		        //The validate binding will init this on blur, and clear it on focus
+		        //So that editing the field immediately clears errors
+		        target.isActive = ko.observable(false);
+		
+		        //Allow Regex validations
+		        if (validator instanceof RegExp) {
+		            validator = function() {
+		                return value !== undefined && value !== null && validator.test(value);
+		            };
+		        }
+		        //If validator isn't regex or function, provide default validation
+		        if (typeof validator !== 'function') {
+		            validator = function (value) {
+		                return value !== undefined && value !== null && value.length > 0;
+		            };
+		        }
+		
+		        target.isValid = ko.computed(function () {
+		            return validator(target());
+		        });
+		
+		        //Just a convienient wrapper to bind against for error displays
+		        //Will only show errors if validation is active AND invalid
+		        target.showError = ko.computed(function () {
+		            //This intentionally does NOT short circuit, to establish dependency
+		            return target.isActive() & !target.isValid();
+		        });
+		
+		        return target;
+		    };
+		
+		    //Just activate whatever observable is given to us on first blur
+		    ko.bindingHandlers.validate = {
+		        init: function (element, valueAccessor) {
+		            ko.bindingHandlers.value.init.apply(this, arguments); //Wrap value init
+		            //Active will remain false until we have left the field
+		            //Starting the input with validation errors is bad
+		            ko.utils.registerEventHandler(element, 'blur', function () {
+		                valueAccessor().isActive(true);
+		            });
+		            //Validation should turn off while we are in the field
+		            ko.utils.registerEventHandler(element, 'focus', function () {
+		                valueAccessor().isActive(false);
+		            });
+		        },
+		        update: ko.bindingHandlers.value.update //just wrap the update binding handler
+		    };
 
 		ko.extenders.numeric = function(target, options) {
 			//create a writeable computed observable to intercept writes to our observable
