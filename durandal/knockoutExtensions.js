@@ -102,8 +102,9 @@ define(['knockout', 'jquery'], function(ko, $) {
 		
 		        //Allow Regex validations
 		        if (validator instanceof RegExp) {
-		            validator = function (value) {
-		                return value !== undefined && value !== null && validator.test(value);
+		            var validationRegex = validator;
+		            validator = function(value) {
+		                return value !== undefined && value !== null && validationRegex.test(value);
 		            };
 		        }
 		        //If validator isn't regex or function, provide default validation
