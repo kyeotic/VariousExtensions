@@ -56,6 +56,10 @@ define(['knockout', 'jquery'], function(ko, $) {
                         passed = false;
                     if (validation.maxLength && value.length > ko.unwrap(validation.maxLength))
                         passed = false;
+                        
+                    var options = ko.unwrap(validation.options);
+		            if (options && options instanceof Array && options.indexOf(value) === -1)
+		                passed = false;
 
                     return passed;
                 };
