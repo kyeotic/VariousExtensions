@@ -11,9 +11,11 @@
 
     The above copyright notice and this permission notice shall be included in
     all copies or substantial portions of the Software.
+
+    Promise Command by Tim Moran
 */
 
-define(['knockout', 'jquery', 'Q'], function(ko, $, Q) {
+define(['knockout', 'jquery', 'Q', 'durandal/system'], function(ko, $, Q, system) {
 
     var install = function() {
         //Command objects
@@ -45,20 +47,15 @@ define(['knockout', 'jquery', 'Q'], function(ko, $, Q) {
             var executeDelegate = options.execute;
             
             //Execute will be called from the binding, and so it needs to .done() its own chain
-            //But direct calls need access to a chainable promise, so we make a new promise for
-            //The end of the old chain, and return that
+            //But direct calls need access to a chainable promise
             var self = function () {
-                var promise = self.execute.apply(this, arguments);
-                return Q.when(promise).fail(function() {
-                        console.log('An error occured with execute delegate');
-                        console.log(executeDelegate);
-                    });
+                return Q.fapply(executeDelegate, arguments);
             };
 
             self.isExecuting = ko.observable();
 
             self.canExecute = ko.computed(function () {
-                return canExecuteDelegate ? canExecuteDelegate(self.isExecuting()) : !self.isExecuting();
+                return canExecuteDelegate ? canExecuteDelegate() && !self.isExecuting() : !self.isExecuting();
             });
 
             self.execute = function (arg1, arg2) {
@@ -84,7 +81,7 @@ define(['knockout', 'jquery', 'Q'], function(ko, $, Q) {
         };
 
         ko.bindingHandlers.command = {
-            init: function (element, valueAccessor, allBindingsAccessor, viewModel) {
+            init: function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
                 var
                     value = valueAccessor(),
                     commands = value.execute ? { click: value } : value,
@@ -103,7 +100,8 @@ define(['knockout', 'jquery', 'Q'], function(ko, $, Q) {
                                 element,
                                 ko.utils.wrapAccessor(commands[command].execute),
                                 allBindingsAccessor,
-                                viewModel
+                                viewModel,
+                                bindingContext
                             );
                         }
                     },
@@ -121,7 +119,8 @@ define(['knockout', 'jquery', 'Q'], function(ko, $, Q) {
                             element,
                             ko.utils.wrapAccessor(events),
                             allBindingsAccessor,
-                            viewModel);
+                            viewModel,
+                            bindingContext);
                     };
 
                 initBindingHandlers();
