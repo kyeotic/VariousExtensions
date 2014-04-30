@@ -15,9 +15,9 @@
     Promise Command by Tim Moran
 */
 
-define(['knockout', 'jquery', 'Q', 'durandal/system'], function(ko, $, Q, system) {
+define(['knockout', 'jquery', 'Q', 'durandal/system'], function (ko, $, Q, system) {
 
-    var install = function() {
+    var install = function () {
         //Command objects
         ko.command = function (options) {
             var
@@ -45,11 +45,17 @@ define(['knockout', 'jquery', 'Q', 'durandal/system'], function(ko, $, Q, system
         ko.promiseCommand = function (options) {
             var canExecuteDelegate = options.canExecute;
             var executeDelegate = options.execute;
-            
-            //Execute will be called from the binding, and so it needs to .done() its own chain
-            //But direct calls need access to a chainable promise
+
+            //This is the method that will be accessible by calling the command as a function
             var self = function () {
-                return Q.fapply(executeDelegate, arguments);
+                if (!self.canExecute())
+                    return Q(null);
+
+                self.isExecuting(true);
+
+                return Q.fapply(executeDelegate, arguments).then(function () {
+                    self.isExecuting(false);
+                });
             };
 
             self.isExecuting = ko.observable();
@@ -58,16 +64,10 @@ define(['knockout', 'jquery', 'Q', 'durandal/system'], function(ko, $, Q, system
                 return canExecuteDelegate ? canExecuteDelegate() && !self.isExecuting() : !self.isExecuting();
             });
 
+            //This is the method called from the binding, so it needs to .done() the promise
+            //Otherwise it will eat errors
             self.execute = function (arg1, arg2) {
-                // Needed for anchors since they don't support the disabled state
-                if (!self.canExecute())
-                    return null;
-
-                self.isExecuting(true);
-
-                return Q.fapply(executeDelegate, [arg1, arg2]).then(function () {
-                    self.isExecuting(false);
-                }).done();
+                self(arg1, arg2).done();
             };
 
             return self;
