@@ -1,306 +1,153 @@
-define(['knockout', 'jquery'], function(ko, $) {
+/*
+    Taken from KoLite
+    Copyright © 2012 Hans Fjällemark & John Papa
 
-    var install = function() {
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
 
-        //Depends on SugarJS
-        ko.viewmodel = function (viewmodel, map, createUpdateMethod) {
-            Object.keys(map, function (key, value) {
-                viewmodel[key] = Object.isArray(value) ? ko.observableArray(value) : ko.observable(value);
-                if (value.valueOf && value.extend)
-                    viewmodel[key] = viewmodel[key].extend(value.extend);
+    The above copyright notice and this permission notice shall be included in
+    all copies or substantial portions of the Software.
+
+    Promise Command by Tim Moran
+*/
+
+define(['knockout', 'jquery', 'Q', 'durandal/system'], function (ko, $, Q, system) {
+
+    var install = function () {
+        //Command objects
+        ko.command = function (options) {
+            var
+                self = function () {
+                    return self.execute.apply(this, arguments);
+                },
+                canExecuteDelegate = options.canExecute,
+                executeDelegate = options.execute;
+
+            self.canExecute = ko.computed(function () {
+                return canExecuteDelegate ? canExecuteDelegate() : true;
             });
-            
-            if (createUpdateMethod) {
-                viewmodel.update = function(data) {
-                    Object.keys(map, function(key, value) {
-                        if (data[key])
-                            viewmodel[key](value);
-                    });
-                };
-            }
+
+            self.execute = function (arg1, arg2) {
+                // Needed for anchors since they don't support the disabled state
+                if (!self.canExecute())
+                    return;
+
+                return executeDelegate.apply(this, [arg1, arg2]);
+            };
+
+            return self;
         };
 
-        //=================================================================================
-        //Validation
-        //=================================================================================
+        ko.promiseCommand = function (options) {
+            var canExecuteDelegate = options.canExecute;
+            var executeDelegate = options.execute;
 
-        var defaultMessage = 'Invalid Value',
-        defaultValidator = function (value) {
-            return value !== undefined && value !== null && (value.length === undefined || value.length > 0);
+            //This is the method that will be accessible by calling the command as a function
+            var self = function () {
+                if (!self.canExecute())
+                    return Q(null);
+
+                self.isExecuting(true);
+
+                return Q.fapply(executeDelegate, arguments).then(function () {
+                    self.isExecuting(false);
+                });
+            };
+
+            self.isExecuting = ko.observable();
+
+            self.canExecute = ko.computed(function () {
+                return canExecuteDelegate ? canExecuteDelegate() && !self.isExecuting() : !self.isExecuting();
+            });
+
+            //This is the method called from the binding, so it needs to .done() the promise
+            //Otherwise it will eat errors
+            self.execute = function (arg1, arg2) {
+                self(arg1, arg2).done();
+            };
+
+            return self;
         };
 
-        var getValidationFunction = function (validator) {
-
-            //Allow Regex validations
-            if (validator instanceof RegExp) {
-                var validationRegex = validator;
-                validator = function (value) {
-                    return value !== undefined && value !== null && validationRegex.test(value);
-                };
-                return validator;
-            }
-
-            if (typeof validator === 'object') {
-                var validation = validator;
-                validator = function (value) {
-                    var passed = true,
-                        valueFloat = parseFloat(value, 10);
-
-                    //If we require numbers, we use a parsed value, any isNaN is a failure
-                    if (validation.min && (valueFloat < ko.unwrap(validation.min) || isNaN(valueFloat)))
-                        passed = false;
-                    if (validation.max && (valueFloat > ko.unwrap(validation.max) || isNaN(valueFloat)))
-                        passed = false;
-
-                    if (validation.minLength && value.length < ko.unwrap(validation.minLength))
-                        passed = false;
-                    if (validation.maxLength && value.length > ko.unwrap(validation.maxLength))
-                        passed = false;
-                        
-                    var options = ko.unwrap(validation.options);
-		            if (options && options instanceof Array && options.indexOf(value) === -1)
-		                passed = false;
-
-                    return passed;
-                };
-            }
-
-            //If validator isn't regex or function, provide default validation
-            return typeof validator === 'function' ? validator : defaultValidator;
-        };
-
-        var getValidation = function (validator) {
-            var message = defaultMessage,
-                handler;
-
-            if (typeof validator === 'object') {
-                if (validator.message)
-                    message = validator.message;
-                handler = getValidationFunction(validator.validate);
-            } else {
-                handler = getValidationFunction(validator);
-            }
-
-            return {
-                validate: handler,
-                message: message
+        //Command Bindings
+        ko.utils.wrapAccessor = function (accessor) {
+            return function () {
+                return accessor;
             };
         };
 
-        ko.extenders.isValid = function (target, validator) {
-            //Use for tracking whether validation should be used
-            //The validate binding will init this on blur, and clear it on focus
-            //So that editing the field immediately clears errors
-            target.isModified = ko.observable(false);
+        ko.bindingHandlers.command = {
+            init: function (element, valueAccessor, allBindingsAccessor, viewModel, bindingContext) {
+                var
+                    value = valueAccessor(),
+                    commands = value.execute ? { click: value } : value,
 
-            var validations = [];
+                    isBindingHandler = function (handler) {
+                        return ko.bindingHandlers[handler] !== undefined;
+                    },
 
-            if (validator instanceof Array) {
-                validator.forEach(function (v) {
-                    validations.push(getValidation(v));
-                });
-            } else {
-                validations.push(getValidation(validator));
-            }
+                    initBindingHandlers = function () {
+                        for (var command in commands) {
+                            if (!isBindingHandler(command)) {
+                                continue;
+                            }
 
-            //We need to track both failure and the message in one step
-            //Having one set the other feels odd, and having both run through
-            //All the validation methods is inefficient.
-            var error = ko.computed(function () {
-                var value = target();
-                //We want just the first failing validation, but we want to run
-                //All the functions to establish an closed-over dependencies that might exist
-                //in each function. We are trading performance for additional flexiblity here.
-                var result = validations.filter(function (validation) {
-                    return !validation.validate(value);
-                });
+                            ko.bindingHandlers[command].init(
+                                element,
+                                ko.utils.wrapAccessor(commands[command].execute),
+                                allBindingsAccessor,
+                                viewModel,
+                                bindingContext
+                            );
+                        }
+                    },
 
-                return result.length > 0 ? result[0] : undefined;
-            });
+                    initEventHandlers = function () {
+                        var events = {};
 
-            target.isValid = ko.computed(function () {
-                return error() === undefined;
-            });
+                        for (var command in commands) {
+                            if (!isBindingHandler(command)) {
+                                events[command] = commands[command].execute;
+                            }
+                        }
 
-            target.errorMessage = ko.computed(function () {
-                return error() !== undefined ? ko.unwrap(error().message) : '';
-            });
+                        ko.bindingHandlers.event.init(
+                            element,
+                            ko.utils.wrapAccessor(events),
+                            allBindingsAccessor,
+                            viewModel,
+                            bindingContext);
+                    };
 
-            //Just a convienient wrapper to bind against for error displays
-            //Will only show errors if validation is active AND invalid
-            target.showError = ko.computed(function () {
-                var active = target.isModified(),
-                    isValid = target.isValid();
-                return active && !isValid;
-            });
-
-            return target;
-        };
-
-        //Just activate whatever observable is given to us on first blur
-        ko.bindingHandlers.validate = {
-            init: function (element, valueAccessor) {
-                if (!ko.isObservable(valueAccessor()))
-                    throw new Error("The validate binding cannot be used with non-observables.");
-
-                ko.bindingHandlers.value.init.apply(this, arguments); //Wrap value init
-
-                //Starting the input with validation errors is bad
-                //We will activate the validation after the user has done something
-                //Select's get change raised when OPTIONS are bound, which is very common
-                //We don't want that to activate validation
-                if (element.nodeName.toLowerCase() === "select") {
-                    valueAccessor().__selectInit = false;
-                }
-
-                //Active will remain false until we have left the field
-                ko.utils.registerEventHandler(element, 'blur', function () {
-                    valueAccessor().isModified(true);
-                });
+                initBindingHandlers();
+                initEventHandlers();
             },
-            update: function (element, valueAccessor) {
-                //Input's get activated on blur, not update
-                if (element.nodeName.toLowerCase() === "select") {
-                    //The update handler runs on INIT, so we need a way to skip the 1st time only
-                    if (!valueAccessor().__selectInit)
-                        valueAccessor().__selectInit = true;
-                    else
-                        valueAccessor().isModified(true);
-                }
-                ko.bindingHandlers.value.update.apply(this, arguments); //just wrap the update binding handler
-            }
-        };
 
-        //=================================================================================
-        //Binding Handlers
-        //=================================================================================
+            update: function (element, valueAccessor, allBindingsAccessor, viewModel) {
+                var commands = valueAccessor();
+                var canExecute = commands.canExecute;
 
-        ko.bindingHandlers.slideVisible = {
-            update: function(element, valueAccessor, allBindings) {
-                var value = valueAccessor();
-                var valueUnwrapped = ko.unwrap(value);
-                var duration = ko.unwrap(allBindings().slideDuration) || 400;
-         
-                if (valueUnwrapped === true)
-                    $(element).slideDown(duration); // Make the element visible
-                else
-                    $(element).slideUp(duration);   // Make the element invisible
-            }
-        };
-
-        ko.bindingHandlers.enterKey = {
-            init: function(element, valueAccessor, allBindings, data) {
-                var handler = function(data, event) {
-                    if (event.keyCode === 13) {
-                        valueAccessor().call(data, data, event);
-                    }
-                };
-                var newValueAccessor = function() {
-                    return { keyup: handler };
-                };
-                ko.bindingHandlers.event.init(element, newValueAccessor, allBindings, data);
-            }
-        };
-
-        ko.observableArray.fn.map = function(data, constructor) {
-            this(ko.utils.arrayMap(data, function(i) {
-                return new constructor(i);
-            }));
-        };
-
-        ko.observableArray.fn.pushAll = function(items){
-            if(!(items instanceof Array)) return this.peek().length;
-            this.valueWillMutate();
-            ko.utils.arrayPushAll(this.peek(), items);
-            this.valueHasMutated();
-            return this.peek().length;
-        };
-
-        ko.subscribable.fn.subscribeChanged = function(callback) {
-            var previousValue;
-            this.subscribe(function(_previousValue) {
-                previousValue = _previousValue;
-            }, undefined, 'beforeChange');
-            this.subscribe(function(latestValue) {
-                callback(latestValue, previousValue );
-            });
-        };
-
-        ko.observableArray.fn.subscribeArrayChanged = function(addCallback, deleteCallback) {
-            var previousValue;
-            this.subscribe(function(_previousValue) {
-                previousValue = _previousValue.slice(0);
-            }, undefined, 'beforeChange');
-            this.subscribe(function(latestValue) {
-                var editScript = ko.utils.compareArrays(previousValue, latestValue);
-                for (var i = 0, j = editScript.length; i < j; i++) {
-                    switch (editScript[i].status) {
-                        case "retained":
+                if (!canExecute) {
+                    for (var command in commands) {
+                        if (commands[command].canExecute) {
+                            canExecute = commands[command].canExecute;
                             break;
-                        case "deleted":
-                            if (deleteCallback)
-                                deleteCallback(editScript[i].value, i);
-                            break;
-                        case "added":
-                            if (addCallback)
-                                addCallback(editScript[i].value, i);
-                            break;
-                    }
-                }
-                previousValue = undefined;
-            });
-        };
-
-        ko.extenders.numeric = function(target, options) {
-            //create a writeable computed observable to intercept writes to our observable
-            var result = ko.computed({
-                read: target,  //always return the original observables value
-                write: function(newValue) {
-                    var current = target(),
-                        roundingMultiplier = Math.pow(10, ko.unwrap(options.precision) || 0),
-                        newValueAsNum = isNaN(newValue) ? 0 : parseFloat(+newValue),
-                        valueToWrite = Math.round(newValueAsNum * roundingMultiplier) / roundingMultiplier;
-
-                    if (ko.unwrap(options.positive)){
-                        valueToWrite = Math.abs(valueToWrite);
-                    }
-                    if (ko.unwrap(options.min) !== undefined) {
-                        valueToWrite = Math.max(ko.unwrap(options.min), valueToWrite);
-                    }
-                    if (ko.unwrap(options.max) !== undefined) {
-                        valueToWrite = Math.min(ko.unwrap(options.max), valueToWrite);
-                    }
-                    //only write if it changed
-                    if (valueToWrite !== current) {
-                        target(valueToWrite);
-                    } else {
-                        //if the rounded value is the same, but a different value was written, force a notification for the current field
-                        if (newValue !== current) {
-                            target.notifySubscribers(valueToWrite);
                         }
                     }
                 }
-            });
-         
-            //initialize with current value to make sure it is rounded appropriately
-            result(target());
 
-            //Subscribe to any observables options
-            [options.precision, options.positive, options.min, options.max].forEach(function(prop) {
-                if (ko.isObservable(prop)) {
-                    prop.subscribe(function() {
-                        result(result());
-                    });
+                if (!canExecute) {
+                    return;
                 }
-            });
-         
-            //return the new computed observable
-            //Without notify, the notifySubscribers will fail on 2-N attempts, due to stale value persistence
-            return result.extend({ notify: 'always' });
+
+                ko.bindingHandlers.enable.update(element, canExecute, allBindingsAccessor, viewModel);
+            }
         };
     };
-
-    
 
     return {
         install: install
