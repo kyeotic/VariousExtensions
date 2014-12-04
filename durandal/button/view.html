@@ -1,0 +1,15 @@
+<div class="inline-block" data-bind="popover: { title: 'Error', body: command.errorText, show: isShowingError, useCloseButton: true }">
+    <button class="btn" data-bind="command: command,
+                                   btnCss: btnCss,
+                                   btnSuccessCss: btnSuccessCss,
+                                   btnErrorCss: btnErrorCss,
+                                   btnRunningCss: btnRunningCss">
+        <i class="fa" data-bind="activity: command,
+                                 iconCss: iconCss,
+                                 iconSuccess: successIcon,
+                                 iconErrorCss: errorIcon,
+                                 iconRunningCss: runningIcon,
+                                 iconSpinCss: spinIconClass"></i>
+        <span data-bind="text: text"></span>
+    </button>
+</div>
