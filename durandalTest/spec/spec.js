@@ -71,7 +71,7 @@ test.then(function () {
 }).then(phantom.exit);
 
 test.fail(function(error) {
-    console.log('An error occured', error);
+    console.log('An error occurred', error);
     phantom.exit(runSpecs.failed == 0 ? 0 : 1);
 });
 
