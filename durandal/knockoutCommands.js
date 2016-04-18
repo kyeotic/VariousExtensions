@@ -114,7 +114,7 @@ define(['knockout', 'jquery', 'Q', 'durandal/system'], function (ko, $, Q, syste
             self.execute = function (arg1, arg2) {
                 self(arg1, arg2)
                     .fail(function(error) {
-                        system.error('An unhandled error occured in a promise command', error);
+                        system.error('An unhandled error occurred in a promise command', error);
                         self.isErrored(true);
                     })
                     .finally(function() {
